@@ -5,18 +5,20 @@
 #include "RBTree.h"
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
+#include <limits.h>
 
 #define THREAD_CHECK(x)\
     if((x) != 0){return 0;}
 #define NULL_CHECK(x)\
     if((x) == 0){return 0;}
 
-int tree_insert(rb_tree* tree, void* obj){
+int tree_insert(rb_tree* tree, void* obj, size_t length){
     THREAD_CHECK(pthread_mutex_lock(&tree -> mutex));
     node* parent = NULL;
     node* x = NULL;
     node* new = NULL;
-    x = rec_search(tree -> root, obj, tree -> compare);
+    x = rec_search(tree -> root, obj, length);
     if (x != NULL) {
         THREAD_CHECK(pthread_mutex_unlock(&tree->mutex));
         return 1; //already in tree
@@ -27,11 +29,12 @@ int tree_insert(rb_tree* tree, void* obj){
     new -> right = NULL;
     new -> black = 1;
     new -> key = obj;
+    new -> key_length = length;
 
     x = tree -> root;
     while(x != NULL){
         parent = x;
-        if(tree -> compare(new -> key, x -> key) < 0)
+        if(memcmp(new -> key, x -> key, min(new -> key_length, x -> key_length)) < 0)
             x=x->left;
         else
             x=x->right;
@@ -39,7 +42,7 @@ int tree_insert(rb_tree* tree, void* obj){
     new -> parent = parent;
     if(parent == NULL)
         tree -> root = new;
-    else if(tree -> compare(new -> key, parent -> key) < 0)
+    else if(memcmp(new -> key, parent -> key, min(new -> key_length, parent -> key_length)) < 0)
         parent -> left = new;
     else 
         parent -> right = new;
@@ -91,40 +94,45 @@ static void insert_fixup(node* z,node* *root){
     //tnil -> black = 0;
 }
 
-static void* rec_randsearch(node* n, void* obj, int (*compare) (void*, void*)) {
-    if (n == NULL)
-        return NULL;
 
-    node *rec_node = NULL;
-
-    if (compare(n->key, obj) > 0){ //todo check correctness
-        fprintf(stderr, "looking %s, going left\n", n -> key);
-        rec_node = rec_randsearch(n -> left, obj, compare);
-    }else{
-        fprintf(stderr, "looking %s, going right\n", n -> key);
-        rec_node = rec_randsearch(n -> right, obj, compare);
-    }
-    if(rec_node == NULL) //is leaf
-        return n -> key;
-    return rec_node;
-}
-
-void* tree_randsearch(rb_tree* tree, void* obj){
+void* tree_randsearch(rb_tree* tree, void* obj, size_t length){
     THREAD_CHECK(pthread_mutex_lock(&tree -> mutex));
-    void* ret = rec_randsearch(tree -> root, obj, tree -> compare);
+    void* ret = rec_randsearch(tree -> root, obj, length, INT_MAX);
     THREAD_CHECK(pthread_mutex_unlock(&tree -> mutex));
     return ret;
 }
 
-static node* rec_search(node* x, void* obj, int (*compare)(void*, void*)){
+
+static void* rec_randsearch(node* n, void* obj, size_t length, int previous_error){
+    if (n == NULL)
+        return NULL;
+    int current_error = void_compare(obj, n -> key, min(n -> key_length, length));
+    if(current_error > previous_error)
+        return NULL;
+
+    node *rec_node = NULL;
+
+    int comp_result = memcmp(n->key, obj, min(n -> key_length, length));
+
+    if (comp_result > 0){ //todo check correctness
+        rec_node = rec_randsearch(n -> left, obj, length, current_error);
+    }else if(comp_result < 0){
+        rec_node = rec_randsearch(n -> right, obj, length, current_error);
+    }
+
+    return !rec_node ? n -> key : rec_node;
+}
+
+
+static node* rec_search(node* x, void* obj, size_t length){
     if(x == NULL)
         return NULL;
-    int comp = compare(obj, x -> key);
+    int comp = memcmp(obj, x -> key, min(x -> key_length, length));
     if(comp == 0)
         return x;
     if(comp < 0)
-        return rec_search(x -> left, obj, compare);
-    return rec_search(x -> right, obj, compare);
+        return rec_search(x -> left, obj, length);
+    return rec_search(x -> right, obj, length);
 }
 
 
@@ -147,6 +155,10 @@ static void left_rotation(node* x, node* *root){
     }
 }
 
+size_t min(size_t s1, size_t s2){
+    return s1 > s2 ? s2: s1;
+}
+
 static void rec_print(node* n){
     if(n != NULL){
         rec_print(n -> left);
@@ -162,9 +174,8 @@ int tree_print(rb_tree* tree){
     return 1;
 }
 
-rb_tree* tree_init(int (*compare) (void*, void*)){
+rb_tree* tree_init(){
     rb_tree* t = malloc(sizeof(rb_tree));
-    t -> compare = compare;
     t -> root = NULL;
     pthread_mutex_init(&t -> mutex, NULL);
     return t;
@@ -189,7 +200,13 @@ static void right_rotation(node* x,node* *root){
     }
 }
 
-
+static int void_compare(void* a, void* b, size_t length) {
+    int count = 0;
+    for (int i = 0; i < length; i++)
+        if (*(unsigned char *) a != *(unsigned char *) b)
+            count++;
+    return count;
+}
 
 //void tree_delete(node* z,node* *root){
 //    node* y,x;

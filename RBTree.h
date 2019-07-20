@@ -12,6 +12,7 @@ typedef struct node{
   struct node* left;
   struct node* parent;
   void* key;
+  size_t key_length;
   int black; //boolean
 }node;
 
@@ -19,17 +20,19 @@ typedef struct node{
 typedef struct{
     node* root;
     pthread_mutex_t mutex;
-    int (*compare) (void*, void*); //compare function
 }rb_tree;
 
-rb_tree* tree_init(int (*compare) (void*, void*));
-int tree_insert(rb_tree *, void* obj);
-static void insert_fixup(node* z,node* *root);
-static void right_rotation(node* x,node* *root);
-static void left_rotation(node* x,node* *root);
-void* tree_randsearch(rb_tree*, void* obj); //searches for the 'closest node'
-static node* rec_search(node* x, void* obj, int (*compare)(void*, void*)); //returns the node if found
+rb_tree* tree_init();
+int tree_insert(rb_tree*, void*, size_t);
+static void insert_fixup(node*, node**);
+static void right_rotation(node*, node**);
+static void left_rotation(node*, node**);
+void* tree_randsearch(rb_tree*, void*, size_t); //searches for the 'closest node'
+static void* rec_randsearch(node*, void*, size_t, int);
+static node* rec_search(node*, void*, size_t); //returns the node if found
 int tree_print(rb_tree*);
+static size_t min(size_t, size_t);
+static int void_compare(void*, void*, size_t);
 
 //coming next
 //void tree_delete(node* z,node* *root);
