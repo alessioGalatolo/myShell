@@ -70,7 +70,7 @@ int main(){
         }while(i < ARG_MAX_LENGTH - 1 && args[i - 1] != NULL);
         args[i - 2] = remove_new_line(args[i - 2]);
         if(strncmp("exit", args[0], sizeof(char) * 4) != 0){
-            store_command(args)
+            //store_command(args)
             runcommand(args);
         }
         FREE(input);
