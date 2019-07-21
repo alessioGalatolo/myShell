@@ -24,15 +24,10 @@ typedef struct{
 
 rb_tree* tree_init();
 int tree_insert(rb_tree*, void*, size_t);
-static void insert_fixup(node*, node**);
-static void right_rotation(node*, node**);
-static void left_rotation(node*, node**);
 void* tree_randsearch(rb_tree*, void*, size_t); //searches for the 'closest node'
-static void* rec_randsearch(node*, void*, size_t, int);
-static node* rec_search(node*, void*, size_t); //returns the node if found
 int tree_print(rb_tree*);
-static size_t min(size_t, size_t);
-static int void_compare(void*, void*, size_t);
+int tree_save_tofile(rb_tree*, char*); //writes tree to file in a clever way
+int tree_load_fromfile(rb_tree*, char*);
 
 //coming next
 //void tree_delete(node* z,node* *root);
