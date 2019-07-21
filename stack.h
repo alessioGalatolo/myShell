@@ -28,6 +28,8 @@ stack* stack_init();
 int stack_add(stack*, void*);
 int stack_reset_iterator(stack*);
 void* stack_getnext(stack*);
-int stack_destroy_wfree(stack* s);
+int stack_destroy_wfree(stack*);
+int stack_save_file(stack*, char*);
+int stack_load_file(stack*, char*);
 
 #endif //MYSHELL_STACK_H

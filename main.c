@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <fcntl.h>
+#include "cmd_storage.h"
 
 #define COMMAND_BASE_LENGTH 100
 #define ARG_MAX_LENGTH 20
@@ -42,6 +43,8 @@ char *remove_new_line(char *s){
     return ret;
 }
 
+
+//TODO change ARG_MAX_LENGTH
 int main(){
     size_t input_length = COMMAND_BASE_LENGTH;
     char *input;
@@ -70,7 +73,7 @@ int main(){
         }while(i < ARG_MAX_LENGTH - 1 && args[i - 1] != NULL);
         args[i - 2] = remove_new_line(args[i - 2]);
         if(strncmp("exit", args[0], sizeof(char) * 4) != 0){
-            //store_command(args)
+            store_command(args);
             runcommand(args);
         }
         FREE(input);
@@ -160,29 +163,31 @@ char *readcommand(size_t *readen) {
 }
 
 int tab_complete(char *input) {
-    int pid = fork();
     int mfd = open(COMPLETE_FILE, O_WRONLY, 0666);
-    if(pid < 0){
-        perror("fork error");
-        return 1;
-    }else if( pid == 0 ){
-        size_t len = strlen(input) + 1;
-        char to_complete[len];
-        strncpy(to_complete, input, len);
-        to_complete[len - 2] = '*';
-        to_complete[len - 1] = '\0';
-        //dup2(2, mfd);
-        dup2(1, mfd);
-        execl("/usr/bin/find", "/bin", "-name", to_complete, NULL);
-        printf("sei grullo\n");
-        return 1;
-    }else {
-        waitpid(pid, NULL, 0);
-        //elaborate output
-        //fprintf(stderr, "ecnsp\n");
-        close(mfd);
-        //unlink(COMPLETE_FILE);
-    }
+//    int pid = fork();
+//    if(pid < 0){
+//        perror("fork error");
+//        return 1;
+//    }else if( pid == 0 ){
+//        size_t len = strlen(input) + 1;
+//        char to_complete[len];
+//        strncpy(to_complete, input, len);
+//        to_complete[len - 2] = '*';
+//        to_complete[len - 1] = '\0';
+//        //dup2(2, mfd);
+//        dup2(1, mfd);
+//        execl("/usr/bin/find", "/bin", "-name", to_complete, NULL);
+//        printf("sei grullo\n");
+//        return 1;
+//    }else {
+//        waitpid(pid, NULL, 0);
+//        //elaborate output
+//        //fprintf(stderr, "ecnsp\n");
+//        close(mfd);
+//        //unlink(COMPLETE_FILE);
+//    }
+    char* complete = search_command(input);
+    fprintf(stderr, "%s\n", complete);
     return 0;
 }
 

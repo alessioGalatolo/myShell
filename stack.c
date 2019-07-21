@@ -69,6 +69,10 @@ void rec_destroy(stack_node* s){
     }
 }
 
+
+int stack_save_file(stack*, char*);
+int stack_load_file(stack*, char*);
+
 int stack_destroy_wfree(stack* s){
     THREAD_CHECK(pthread_mutex_lock(&(s -> mutex)));
     rec_destroy(s -> head);

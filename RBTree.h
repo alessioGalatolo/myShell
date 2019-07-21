@@ -26,8 +26,11 @@ rb_tree* tree_init();
 int tree_insert(rb_tree*, void*, size_t);
 void* tree_randsearch(rb_tree*, void*, size_t); //searches for the 'closest node'
 int tree_print(rb_tree*);
-int tree_save_tofile(rb_tree*, char*); //writes tree to file in a clever way
-int tree_load_fromfile(rb_tree*, char*);
+int tree_save_file(rb_tree*, char*); //writes tree to file in a clever way
+int tree_load_file(rb_tree*, char*);
+
+//TODO
+//tree_destroy()
 
 //coming next
 //void tree_delete(node* z,node* *root);
