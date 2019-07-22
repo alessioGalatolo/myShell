@@ -4,6 +4,9 @@
 
 #include <string.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <pthread.h>
+#include <sys/stat.h>
 #include "cmd_storage.h"
 #include "RBTree.h"
 #include "stack.h"
@@ -16,6 +19,28 @@ static void check_initialization(){
         cmd_tree = tree_init();
     if(cmd_stack == NULL)
         cmd_stack = stack_init();
+}
+
+static void* store_thread_fun(void* arg){
+    tree_save_file(cmd_tree, (char*) arg);
+    stack_save_file(cmd_stack, (char*) arg);
+}
+
+static int store_tofile(){
+    char* path = "/lib/var/myShell/saved_commands";
+    //check folder existance
+    char* dir = "/lib/var/myshell";
+    if(access(dir, F_OK) == -1){//not found
+        mkdir(dir, 0700);
+    }
+
+    pthread_t id;
+    pthread_attr_t attr;
+    pthread_attr_init(&attr);
+    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+
+    pthread_create(&id, &attr, store_thread_fun, path);
+    return 1;
 }
 
 int store_command(char** args) {

@@ -31,7 +31,7 @@ void *Realloc(void *buf, size_t size);
 
 void set_input_mode();
 
-int tab_complete(char *input);
+char* tab_complete(char *input);
 
 int runcommand(char *args[]);
 
@@ -134,11 +134,13 @@ char *readcommand(size_t *readen) {
                 terminate = 1;
                 break;
             case 127:
-                input[*readen] = '\0';
-                putchar(8);
-                putchar(' ');
-                putchar(8);
-                (*readen) -= 2;
+                if(*readen > 0) {
+                    input[*readen] = '\0';
+                    putchar(8);
+                    putchar(' ');
+                    putchar(8);
+                    (*readen) -= 2;
+                }
                 break;
             case '\t':
                 input[*readen] = '\0';
@@ -162,8 +164,8 @@ char *readcommand(size_t *readen) {
     return input;
 }
 
-int tab_complete(char *input) {
-    int mfd = open(COMPLETE_FILE, O_WRONLY, 0666);
+char* tab_complete(char *input) {
+//    int mfd = open(COMPLETE_FILE, O_WRONLY, 0666);
 //    int pid = fork();
 //    if(pid < 0){
 //        perror("fork error");
@@ -187,8 +189,13 @@ int tab_complete(char *input) {
 //        //unlink(COMPLETE_FILE);
 //    }
     char* complete = search_command(input);
-    fprintf(stderr, "%s\n", complete);
-    return 0;
+    for(int i = 0; i < strlen(input); i++){
+        putchar(8);
+        putchar(' ');
+        putchar(8);
+    }
+    printf("%s\n", complete);
+    return complete;
 }
 
 

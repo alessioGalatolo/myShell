@@ -15,6 +15,7 @@ typedef struct stack_node{
     unsigned int pos;
     struct stack_node* next;
     void* elem;
+    size_t elem_size;
 }stack_node;
 
 typedef struct{

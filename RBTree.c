@@ -213,6 +213,7 @@ int tree_save_file(rb_tree* tree, char* path){
     NULL_CHECK(file);
     rec_write(tree -> root, file);
 
+    fclose(file); //check error
     THREAD_CHECK(pthread_mutex_unlock(&tree -> mutex));
     return 1;
 }
