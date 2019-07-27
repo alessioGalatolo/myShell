@@ -13,6 +13,8 @@
 
 rb_tree* cmd_tree = NULL;
 stack* cmd_stack = NULL;
+pthread_t autosave_thread = 0;
+int autosave_terminate = 0;
 
 static void check_initialization(){
     if(cmd_tree == NULL)
@@ -24,11 +26,21 @@ static void check_initialization(){
 static void* store_thread_fun(void* arg){
     tree_save_file(cmd_tree, (char*) arg);
     stack_save_file(cmd_stack, (char*) arg);
+    return (void*) 0;
+}
+
+void autosave_tofile(int on){
+    if(on && autosave_thread == 0){
+        autosave_terminate = 0;
+        //launch thread
+    }else if(!on){
+        autosave_terminate = 1;
+    }
 }
 
 static int store_tofile(){
     char* path = "/lib/var/myShell/saved_commands";
-    //check folder existance
+    //check folder existence
     char* dir = "/lib/var/myshell";
     if(access(dir, F_OK) == -1){//not found
         mkdir(dir, 0700);

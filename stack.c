@@ -7,6 +7,11 @@
 #define THREAD_CHECK(x)\
     if((x) != 0){return 0;}
 
+
+
+    //TODO: check IO return values, add fclose
+
+
 stack* stack_init(){
     stack* s = malloc(sizeof(stack));
     s -> head = NULL;
@@ -80,15 +85,38 @@ void rec_write(stack_node* s, FILE* file){
 
 int stack_save_file(stack* s, char* path){
     FILE* file = fopen(path, "w");
-    //null check
+    if(file == NULL)
+        return 0;
     rec_write(s -> head, file);
     size_t zero = 0;
     fwrite(&zero, sizeof(size_t), 1, file);
     fclose(file);
+    return 1;
 }
 
 int stack_load_file(stack* s, char* path){
-    //
+    FILE* file = fopen(path, "r");
+    if(file == NULL)
+        return 0;
+    if((s -> head = malloc(sizeof(stack_node))) == NULL)
+        return 0;
+    fread(&s -> head -> elem_size, sizeof(size_t), 1, file);
+    if(s -> head -> elem_size == 0)
+        return 1;
+    if((s -> head -> elem = malloc(s -> head -> elem_size)) == NULL)
+        return 0;
+    fread(&s -> head -> elem, 1, s -> head -> elem_size, file);
+    size_t cur_size = 0;
+    fread(&cur_size, sizeof(size_t), 1, file);
+    stack_node* cur_node = s -> head;
+    while(cur_size != 0){
+        if((cur_node -> next = malloc(cur_size)) == NULL)
+            return 0;
+        fread(cur_node -> next, 1, cur_size, file);
+        cur_node = cur_node -> next;
+        fread(&cur_size, sizeof(size_t), 1, file);
+    }
+    return 1;
 }
 
 int stack_destroy_wfree(stack* s){

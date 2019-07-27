@@ -13,6 +13,8 @@
 #define NULL_CHECK(x)\
     if((x) == 0){return 0;}
 
+    //TODO: add fclose
+
 //private functions
 static void insert_fixup(node*, node**);
 static void right_rotation(node*, node**);
