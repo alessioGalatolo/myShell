@@ -122,7 +122,7 @@ char *readcommand(size_t *readen) {
 
         read_n = fread(input + *readen, sizeof(char), 1, stdin);
         if(read_n == 0){
-            //handle error
+            //TODO: handle error
         }
 
         switch(input[*readen]) {
@@ -134,7 +134,7 @@ char *readcommand(size_t *readen) {
                 terminate = 1;
                 break;
             case 127:
-                if(*readen > 0) {
+                if (*readen > 0) {
                     input[*readen] = '\0';
                     putchar(8);
                     putchar(' ');
@@ -145,7 +145,15 @@ char *readcommand(size_t *readen) {
             case '\t':
                 input[*readen] = '\0';
                 (*readen)--;
-                terminate = tab_complete(input);
+                char *cmd_completed = tab_complete(input);
+                if (cmd_completed != NULL) {
+                    size_t len = strlen(cmd_completed);
+                    input = Realloc(input, len + 1);
+                    strncpy(input, cmd_completed, len);
+                    *readen = len;
+                    input[*readen] = '\n';
+                    terminate = 1;
+                }
                 break;
             default:
                 putchar(input[*readen]);
@@ -154,12 +162,12 @@ char *readcommand(size_t *readen) {
         (*readen)++;
     }while(!terminate);
 
-    if(*readen == input_length){
-        input = Realloc(input, sizeof(char) * (input_length + 1));
-        input_length += sizeof(char);
+    if(*readen >= input_length){
+        input = Realloc(input, sizeof(char) * (*readen + 1));
+        *readen += sizeof(char); //TODO: what?
     }
 
-    input[input_length] = '\0';
+    input[*readen] = '\0';
 
     return input;
 }
@@ -189,6 +197,8 @@ char* tab_complete(char *input) {
 //        //unlink(COMPLETE_FILE);
 //    }
     char* complete = search_command(input);
+    if(complete == NULL)
+        return NULL;
     for(int i = 0; i < strlen(input); i++){
         putchar(8);
         putchar(' ');

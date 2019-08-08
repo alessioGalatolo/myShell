@@ -13,6 +13,7 @@
 
 rb_tree* cmd_tree = NULL;
 stack* cmd_stack = NULL;
+
 pthread_t autosave_thread = 0;
 int autosave_terminate = 0;
 
@@ -66,7 +67,7 @@ int store_command(char** args) {
     char* cmd = malloc(sizeof(total_length));
     if(cmd == NULL)
         return 0;
-    strcpy(cmd ,args[0]);
+    strcpy(cmd, args[0]);
     strcat(cmd, " ");
     i = 1;
     while(args[i] != NULL){
