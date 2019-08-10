@@ -54,6 +54,8 @@ int main(){
 
     set_input_mode();
 
+    int go_on = 0;
+
     do{
         char *save_ptr;
         char *args[ARG_MAX_LENGTH];
@@ -64,7 +66,7 @@ int main(){
 
         input = readcommand(&input_length);
         args[0] = strtok_r(input, " ", &save_ptr);
-        command = args[0];
+        //command = args[0];
         int i = 1;
         args[ARG_MAX_LENGTH - 1] = NULL;
         do{
@@ -72,12 +74,15 @@ int main(){
             i++;
         }while(i < ARG_MAX_LENGTH - 1 && args[i - 1] != NULL);
         args[i - 2] = remove_new_line(args[i - 2]);
-        if(strncmp("exit", args[0], sizeof(char) * 4) != 0){
+        go_on = strncmp("exit", args[0], sizeof(char) * 4);
+        if(go_on != 0){
             store_command(args);
             runcommand(args);
+        }else{
+            cmd_exit();
         }
         FREE(input);
-    }while(strncmp("exit", command, sizeof(char) * 4));
+    }while(go_on);
 
     return 0;
 }

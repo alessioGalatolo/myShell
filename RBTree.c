@@ -10,8 +10,9 @@
 
 #define THREAD_CHECK(x)\
     if((x) != 0){return 0;}
-#define NULL_CHECK(x)\
-    if((x) == 0){return 0;}
+
+#define NULL_CHECK(x, tree)\
+    if((x) == 0){THREAD_CHECK(pthread_mutex_unlock(&tree -> mutex)); perror("NULL pointer"); return 0;}
 
     //TODO: add fclose
     //TODO: check fread return value
@@ -45,7 +46,7 @@ int tree_insert(rb_tree* tree, void* obj, size_t length){
         THREAD_CHECK(pthread_mutex_unlock(&tree->mutex));
         return 1; //already in tree
     }
-    NULL_CHECK(new = malloc(sizeof(node)));
+    NULL_CHECK(new = malloc(sizeof(node)), tree);
     new -> parent = NULL;
     new -> left = NULL;
     new -> right = NULL;
@@ -213,7 +214,8 @@ static void tree_rec_print(node* n){
 int tree_save_file(rb_tree* tree, char* path){
     THREAD_CHECK(pthread_mutex_lock(&tree -> mutex));
     FILE* file = fopen(path, "w");
-    NULL_CHECK(file);
+    NULL_CHECK(file, tree);
+
     tree_rec_write(tree -> root, file);
 
     fclose(file); //check error
@@ -237,10 +239,10 @@ void tree_rec_write(node* n, FILE* file) {
 int tree_load_file(rb_tree* tree, char* path){
     THREAD_CHECK(pthread_mutex_lock(&tree -> mutex));
     FILE* file = fopen(path, "r");
-    NULL_CHECK(file);
+    NULL_CHECK(file, tree);
     tree -> root = malloc(sizeof(node));
     fread(&tree -> root -> key_length, sizeof(size_t), 1, file);
-    NULL_CHECK(tree -> root -> key = malloc(tree -> root -> key_length));
+    NULL_CHECK(tree -> root -> key = malloc(tree -> root -> key_length), tree);
     fread(tree -> root -> key, 1, tree -> root -> key_length, file);
     tree -> root -> right = NULL;
     tree -> root -> left = NULL;
@@ -256,10 +258,12 @@ int tree_load_file(rb_tree* tree, char* path){
 
 node* tree_rec_read(node* n, FILE* file){
     node* new = malloc(sizeof(node));
-    NULL_CHECK(new);
+    if(new == 0)
+        return 0;
     fread(&new -> key_length, sizeof(size_t), 1, file);
     if(new -> key_length){
-        NULL_CHECK(new -> key = malloc(new -> key_length));
+        if((new -> key = malloc(new -> key_length)) == 0)
+            return 0;
         fread(new -> key, 1, new -> key_length, file);
         fread(&new -> black, sizeof(int), 1, file);
         new -> parent = n;

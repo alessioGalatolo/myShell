@@ -10,7 +10,7 @@
 
 
     //TODO: check IO return values, add fclose
-
+    //TODO: add mutex lock to load/save from file
 
 stack* stack_init(){
     stack* s = malloc(sizeof(stack));

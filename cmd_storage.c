@@ -11,17 +11,27 @@
 #include "RBTree.h"
 #include "stack.h"
 
+#define CMD_STORE_PATH "/var/lib/myShell/saved_commands"
+#define CMD_STORE_DIR "/var/lib/myShell"
+
 rb_tree* cmd_tree = NULL;
 stack* cmd_stack = NULL;
 
 pthread_t autosave_thread = 0;
 int autosave_terminate = 0;
 
+
+
+
 static void check_initialization(){
-    if(cmd_tree == NULL)
+    if(cmd_tree == NULL) {
         cmd_tree = tree_init();
-    if(cmd_stack == NULL)
+        tree_load_file(cmd_tree, CMD_STORE_PATH);
+    }
+    if(cmd_stack == NULL) {
         cmd_stack = stack_init();
+        stack_load_file(cmd_stack, CMD_STORE_PATH);
+    }
 }
 
 static void* store_thread_fun(void* arg){
@@ -40,19 +50,20 @@ void autosave_tofile(int on){
 }
 
 static int store_tofile(){
-    char* path = "/lib/var/myShell/saved_commands";
-    //check folder existence
-    char* dir = "/lib/var/myshell";
-    if(access(dir, F_OK) == -1){//not found
-        mkdir(dir, 0700);
+    //checks folder existence
+    if(access(CMD_STORE_DIR, F_OK) == -1){//not found
+        mkdir(CMD_STORE_DIR, 0700);
     }
 
-    pthread_t id;
-    pthread_attr_t attr;
-    pthread_attr_init(&attr);
-    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+    tree_save_file(cmd_tree, CMD_STORE_PATH);
+    stack_save_file(cmd_stack, CMD_STORE_PATH);
 
-    pthread_create(&id, &attr, store_thread_fun, path);
+//    pthread_t id;
+//    pthread_attr_t attr;
+//    pthread_attr_init(&attr);
+//    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+//
+//    pthread_create(&id, &attr, store_thread_fun, path);
     return 1;
 }
 
@@ -88,4 +99,11 @@ char* search_command(char* cmd){
     if(cmd == NULL)
         return NULL;
     return tree_randsearch(cmd_tree, cmd, strlen(cmd));
+}
+
+void cmd_exit(){
+    autosave_terminate = 1;
+    store_tofile();
+    stack_destroy_wfree(cmd_stack);
+    //TODO: tree_destroy_wfree(cmd_tree);
 }
