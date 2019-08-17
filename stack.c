@@ -40,6 +40,19 @@ int stack_add(stack* s, void* obj){
     return 1;
 }
 
+//get n-th element
+void* stack_getn(stack* s, int n){
+    THREAD_CHECK(pthread_mutex_lock(&s -> mutex));
+    stack_node* node = s -> head;
+    int i = 0;
+    while(i < n - 1 && node != NULL){
+        node = node -> next;
+        i++;
+    }
+    THREAD_CHECK(pthread_mutex_unlock(&s -> mutex));
+    return node -> elem;
+}
+
 
 int stack_reset_iterator(stack* s){
     THREAD_CHECK(pthread_mutex_lock(&(s -> mutex)));

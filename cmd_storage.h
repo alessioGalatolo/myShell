@@ -7,6 +7,7 @@
 
 int store_command(char**);
 char* search_command(char*);
+char* cmd_previous(char*);
 void cmd_exit();
 
 #endif //MYSHELL_COMMAND_STORAGE_H

@@ -27,6 +27,7 @@ typedef struct{
 
 stack* stack_init();
 int stack_add(stack*, void*);
+void* stack_getn(stack*, int);
 int stack_reset_iterator(stack*);
 void* stack_getnext(stack*);
 int stack_destroy_wfree(stack*);

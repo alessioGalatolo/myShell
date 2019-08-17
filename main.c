@@ -129,7 +129,6 @@ char *readcommand(size_t *readen) {
         if(read_n == 0){
             //TODO: handle error
         }
-
         switch(input[*readen]) {
             case '\0':
                 terminate = 1;
@@ -158,6 +157,27 @@ char *readcommand(size_t *readen) {
                     *readen = len;
                     input[*readen] = '\n';
                     terminate = 1;
+                }
+                break;
+            case '\033':
+                //esc key
+                fread(input + *readen, sizeof(char), 1, stdin); //reading '['
+                fread(input + *readen, sizeof(char), 1, stdin); //reading arrow type
+                switch(input[*readen]) { // the real value
+                    case 'A':
+                        //fprintf(stderr, "Up arrow key!\n");
+                        break;
+                    case 'B':
+                        //fprintf(stderr, "Down arrow key!\n");
+                        break;
+                    case 'C':
+                        //fprintf(stderr, "Right arrow key!\n");
+                        break;
+                    case 'D':
+                        //fprintf(stderr, "Left arrow key!\n");
+                        break;
+                    default:
+                        fprintf(stderr, "A non-arrow key has been pressed\n");
                 }
                 break;
             default:

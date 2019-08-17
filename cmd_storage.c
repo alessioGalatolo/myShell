@@ -20,6 +20,8 @@ stack* cmd_stack = NULL;
 pthread_t autosave_thread = 0;
 int autosave_terminate = 0;
 
+//to be used when scrolling between cmds
+int incomplete_cmd = 0;//TODO
 
 
 
@@ -35,14 +37,19 @@ static void check_initialization(){
 }
 
 static void* store_thread_fun(void* arg){
-    tree_save_file(cmd_tree, (char*) arg);
-    stack_save_file(cmd_stack, (char*) arg);
+    //TODO
+
+
     return (void*) 0;
 }
 
 void autosave_tofile(int on){
     if(on && autosave_thread == 0){
         autosave_terminate = 0;
+        pthread_attr_t attr;
+        pthread_attr_init(&attr);
+        pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+        pthread_create(&autosave_thread, &attr, store_thread_fun, NULL);
         //launch thread
     }else if(!on){
         autosave_terminate = 1;
@@ -57,13 +64,6 @@ static int store_tofile(){
 
     tree_save_file(cmd_tree, CMD_STORE_PATH);
     stack_save_file(cmd_stack, CMD_STORE_PATH);
-
-//    pthread_t id;
-//    pthread_attr_t attr;
-//    pthread_attr_init(&attr);
-//    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-//
-//    pthread_create(&id, &attr, store_thread_fun, path);
     return 1;
 }
 
@@ -99,6 +99,11 @@ char* search_command(char* cmd){
     if(cmd == NULL)
         return NULL;
     return tree_randsearch(cmd_tree, cmd, strlen(cmd));
+}
+
+char* cmd_previous(char* current){
+    incomplete_cmd = 1;
+    //TODO: get latest
 }
 
 void cmd_exit(){

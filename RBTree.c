@@ -11,10 +11,12 @@
 #define THREAD_CHECK(x)\
     if((x) != 0){return 0;}
 
-#define NULL_CHECK(x, tree)\
-    if((x) == 0){THREAD_CHECK(pthread_mutex_unlock(&tree -> mutex)); perror("NULL pointer"); return 0;}
+#define NULL_CHECK(x)\
+    if((x) == 0){perror("NULL pointer"); goto error;}
 
-    //TODO: add fclose
+#define FCLOSE(x)\
+    if(x != NULL){if(fclose(x) == EOF) perror("fclose"); x = NULL;}
+
     //TODO: check fread return value
 
 //private functions
@@ -46,7 +48,7 @@ int tree_insert(rb_tree* tree, void* obj, size_t length){
         THREAD_CHECK(pthread_mutex_unlock(&tree->mutex));
         return 1; //already in tree
     }
-    NULL_CHECK(new = malloc(sizeof(node)), tree);
+    NULL_CHECK(new = malloc(sizeof(node)));
     new -> parent = NULL;
     new -> left = NULL;
     new -> right = NULL;
@@ -73,6 +75,10 @@ int tree_insert(rb_tree* tree, void* obj, size_t length){
     insert_fixup(new, &(tree -> root));
     THREAD_CHECK(pthread_mutex_unlock(&tree -> mutex));
     return 1;
+
+    error:
+        THREAD_CHECK(pthread_mutex_unlock(&tree -> mutex));
+        return 0;
 }
 
 static void insert_fixup(node* z,node** root){
@@ -214,13 +220,18 @@ static void tree_rec_print(node* n){
 int tree_save_file(rb_tree* tree, char* path){
     THREAD_CHECK(pthread_mutex_lock(&tree -> mutex));
     FILE* file = fopen(path, "w");
-    NULL_CHECK(file, tree);
+    NULL_CHECK(file);
 
     tree_rec_write(tree -> root, file);
 
-    fclose(file); //check error
+    FCLOSE(file); //check error
     THREAD_CHECK(pthread_mutex_unlock(&tree -> mutex));
     return 1;
+
+    error:
+        FCLOSE(file);
+        THREAD_CHECK(pthread_mutex_unlock(&tree -> mutex));
+        return 0;
 }
 
 void tree_rec_write(node* n, FILE* file) {
@@ -239,10 +250,10 @@ void tree_rec_write(node* n, FILE* file) {
 int tree_load_file(rb_tree* tree, char* path){
     THREAD_CHECK(pthread_mutex_lock(&tree -> mutex));
     FILE* file = fopen(path, "r");
-    NULL_CHECK(file, tree);
+    NULL_CHECK(file);
     tree -> root = malloc(sizeof(node));
     fread(&tree -> root -> key_length, sizeof(size_t), 1, file);
-    NULL_CHECK(tree -> root -> key = malloc(tree -> root -> key_length), tree);
+    NULL_CHECK(tree -> root -> key = malloc(tree -> root -> key_length));
     fread(tree -> root -> key, 1, tree -> root -> key_length, file);
     tree -> root -> right = NULL;
     tree -> root -> left = NULL;
@@ -251,8 +262,14 @@ int tree_load_file(rb_tree* tree, char* path){
 
     tree -> root -> left = tree_rec_read(tree -> root, file);
     tree -> root -> right = tree_rec_read(tree -> root, file);
+    FCLOSE(file);
     THREAD_CHECK(pthread_mutex_unlock(&tree -> mutex));
     return 1;
+
+    error:
+        FCLOSE(file);
+        THREAD_CHECK(pthread_mutex_unlock(&tree -> mutex));
+        return 0;
 }
 
 
