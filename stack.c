@@ -133,6 +133,8 @@ int stack_load_file(stack* s, char* path){
 }
 
 int stack_destroy_wfree(stack* s){
+    if(s == NULL)
+        return 1;
     THREAD_CHECK(pthread_mutex_lock(&(s -> mutex)));
     stack_rec_destroy(s -> head);
     THREAD_CHECK(pthread_mutex_unlock(&(s -> mutex)));

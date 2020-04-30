@@ -7,12 +7,14 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <sys/stat.h>
+#include <stdio.h>
 #include "cmd_storage.h"
 #include "RBTree.h"
 #include "stack.h"
 
-#define CMD_STORE_PATH "/var/lib/myShell/saved_commands"
-#define CMD_STORE_DIR "/var/lib/myShell"
+//TODO: dynamically get home directory
+#define CMD_STORE_PATH "/home/alessio/myShell/saved_commands"
+#define CMD_STORE_DIR "/home/alessio/myShell"
 
 rb_tree* cmd_tree = NULL;
 stack* cmd_stack = NULL;
@@ -59,11 +61,14 @@ void autosave_tofile(int on){
 static int store_tofile(){
     //checks folder existence
     if(access(CMD_STORE_DIR, F_OK) == -1){//not found
-        mkdir(CMD_STORE_DIR, 0700);
+        if(mkdir(CMD_STORE_DIR, 0777) == -1)
+            perror("mkdir error during store tofile");
     }
 
-    tree_save_file(cmd_tree, CMD_STORE_PATH);
-    stack_save_file(cmd_stack, CMD_STORE_PATH);
+    if(cmd_tree != NULL)
+        tree_save_file(cmd_tree, CMD_STORE_PATH);
+    if(cmd_stack != NULL)
+        stack_save_file(cmd_stack, CMD_STORE_PATH);
     return 1;
 }
 
@@ -98,6 +103,7 @@ char* search_command(char* cmd){
     check_initialization();
     if(cmd == NULL)
         return NULL;
+    //TODO: make return a list of string
     return tree_randsearch(cmd_tree, cmd, strlen(cmd));
 }
 

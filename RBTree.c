@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <limits.h>
+#include <errno.h>
 
 #define THREAD_CHECK(x)\
     if((x) != 0){return 0;}
@@ -250,6 +251,8 @@ void tree_rec_write(node* n, FILE* file) {
 int tree_load_file(rb_tree* tree, char* path){
     THREAD_CHECK(pthread_mutex_lock(&tree -> mutex));
     FILE* file = fopen(path, "r");
+    if(file == NULL && errno == ENOENT)
+        goto error;
     NULL_CHECK(file);
     tree -> root = malloc(sizeof(node));
     fread(&tree -> root -> key_length, sizeof(size_t), 1, file);

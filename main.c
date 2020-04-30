@@ -14,27 +14,25 @@
 
 #define COMMAND_LIST_COMMAND find /bin -executable -maxdepth 1
 
-//max attempets for malloc, realloc, ...
+//max attempts for malloc, realloc, ...
 #define MAX_ATTEMPTS 3
 
+//utility functions / macros
 #define FREE(x)\
     if((x) != NULL){free(x); x = NULL;}
+void *Malloc(size_t size);
+void *Realloc(void *buf, size_t size);
 
 //keep attributes of terminal
 struct termios saved_attributes;
-
-void *Malloc(size_t size);
-
-char *readcommand(size_t *readen);
-
-void *Realloc(void *buf, size_t size);
-
+char *read_command(size_t *readen);
 void set_input_mode();
-
 char* tab_complete(char *input);
+int run_command(char **args);
 
-int runcommand(char *args[]);
-
+/**
+ * @return s with the last character removed
+ */
 char *remove_new_line(char *s){
     char *ret = s;
     while(*(s + 1) != '\0')
@@ -43,28 +41,25 @@ char *remove_new_line(char *s){
     return ret;
 }
 
-
 //TODO change ARG_MAX_LENGTH
 int main(){
     size_t input_length = COMMAND_BASE_LENGTH;
     char *input;
-    char *command;
-
-
+    char *command; //stores the typed command
 
     set_input_mode();
 
-    int go_on = 0;
-
+    int go_on = 0; //controls exit
     do{
-        char *save_ptr;
-        char *args[ARG_MAX_LENGTH];
+        char *save_ptr; //used for tokenizer memory
+        char *args[ARG_MAX_LENGTH]; //will store command and arguments
         char* cwd = getcwd(NULL, 0);
 //        write(1, cwd, strlen(cwd) * sizeof(char));
-        printf("%s: ", cwd);
+        printf("%s: ", cwd); //TODO: replace printf
         FREE(cwd);
 
-        input = readcommand(&input_length);
+        //read and parse input
+        input = read_command(&input_length);
         args[0] = strtok_r(input, " ", &save_ptr);
         //command = args[0];
         int i = 1;
@@ -73,11 +68,14 @@ int main(){
             args[i] = strtok_r(NULL, " ", &save_ptr);
             i++;
         }while(i < ARG_MAX_LENGTH - 1 && args[i - 1] != NULL);
+
         args[i - 2] = remove_new_line(args[i - 2]);
+
+        //check termination
         go_on = strncmp("exit", args[0], sizeof(char) * 4);
         if(go_on != 0){
-            store_command(args);
-            runcommand(args);
+            store_command(args); //TODO: run in separate thread
+            run_command(args);
         }else{
             cmd_exit();
         }
@@ -87,13 +85,17 @@ int main(){
     return 0;
 }
 
-int runcommand(char *args[]) {
+/**
+ * Tries to run the command with the given arguments
+ * @return 1 in case of success, 0 otherwise
+ */
+int run_command(char **args) {
     char* command = args[0];
     int pid = fork();
     if(pid < 0){
         perror("fork error");
-        return 1;
-    }else if( pid == 0 ){
+        return 0;
+    }else if(pid == 0){
         //TODO: change length
         char cmd[COMMAND_BASE_LENGTH + 5];
         sprintf(cmd, "/bin/");
@@ -106,14 +108,19 @@ int runcommand(char *args[]) {
             execvp(cmd, args);
         } else
             perror("Exec");
-        return 1;
+        return 0;
     }else {
         waitpid(pid, NULL, 0);
     }
-    return 0;
+    return 1;
 }
 
-char *readcommand(size_t *readen) {
+/**
+ * Reads from input till new line
+ * @param readen Pointer to size_t to store the number of char read
+ * @return The string read
+ */
+char *read_command(size_t *readen) {
     size_t input_length = COMMAND_BASE_LENGTH;
     char* input = Malloc(input_length);
     *readen = 0;
@@ -137,7 +144,7 @@ char *readcommand(size_t *readen) {
                 putchar('\n');
                 terminate = 1;
                 break;
-            case 127:
+            case 127: //delete key
                 if (*readen > 0) {
                     input[*readen] = '\0';
                     putchar(8);
@@ -197,6 +204,11 @@ char *readcommand(size_t *readen) {
     return input;
 }
 
+/**
+ * Tries to complete the string from the input with an appropriate output
+ * @param input The incomplete input
+ * @return ??? TODO
+ */
 char* tab_complete(char *input) {
 //    int mfd = open(COMPLETE_FILE, O_WRONLY, 0666);
 //    int pid = fork();
@@ -233,29 +245,40 @@ char* tab_complete(char *input) {
     return complete;
 }
 
-
 void *Realloc(void *buf, size_t size) {
-    int i = 0;
+    if(size < 0) {
+        fprintf(stderr, "Error: tried to realloc a negative value\n");
+    }else if((size) == 0){
+        free(buf);
+        buf = NULL;
+    }else {
 
-    do {
-        void* oldbuf = buf;
-        buf = realloc(buf, size);
-        if(buf == NULL) {
-            free(oldbuf);
+        int i = 0;
+        do {
+            void *oldbuf = buf;
+            buf = realloc(buf, size);
+            if (buf == NULL) {
+                free(oldbuf);
+            }
+            i++;
+        } while (buf == NULL && i < MAX_ATTEMPTS);
+        if (buf == NULL) {
+            perror("Realloc error");
+            exit(1);
         }
-        i++;
-    } while (buf == NULL && i < MAX_ATTEMPTS);
-    if(buf == NULL){
-        perror("Realloc error");
-        exit(1);
     }
     return buf;
 }
 
 void *Malloc(size_t size) {
+    if(size < 0){
+        fprintf(stderr, "Error: tried to malloc a negative value\n");
+        return 0;
+    }else if(size == 0)
+        fprintf(stderr, "Warning: malloc of zero size\n");
+
     void* pVoid = NULL;
     int i = 0;
-
     do {
         pVoid = malloc(size);
         i++;
@@ -267,9 +290,8 @@ void *Malloc(size_t size) {
     return pVoid;
 }
 
-
 void reset_input_mode(){
-    tcsetattr (STDIN_FILENO, TCSANOW, &saved_attributes);
+    tcsetattr(STDIN_FILENO, TCSANOW, &saved_attributes);
 }
 
 void set_input_mode(){
