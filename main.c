@@ -5,7 +5,7 @@
 #include <termios.h>
 #include <stdlib.h>
 #include <errno.h>
-#include <fcntl.h>
+#include "linkedlist.h"
 #include "cmd_storage.h"
 
 #define COMMAND_BASE_LENGTH 100
@@ -31,14 +31,15 @@ char* tab_complete(char *input);
 int run_command(char **args);
 
 /**
- * @return s with the last character removed
+ * TODO
  */
-char *remove_new_line(char *s){
-    char *ret = s;
-    while(*(s + 1) != '\0')
-        s++;
-    *s = '\0';
-    return ret;
+void remove_new_line(char *s){
+    if(s) {
+        int i = 0;
+        while (*(s + 1 + i) != '\0')
+            i++;
+        *(s + i) = '\0';
+    }
 }
 
 //TODO change ARG_MAX_LENGTH
@@ -49,10 +50,11 @@ int main(){
 
     set_input_mode();
 
-    int go_on = 0; //controls exit
+    int go_on = 1; //controls exit
     do{
         char *save_ptr; //used for tokenizer memory
-        char *args[ARG_MAX_LENGTH]; //will store command and arguments
+        llist_t* arg_list = llist_create();
+        //char *arg_list[ARG_MAX_LENGTH]; //will store command and arguments
         char* cwd = getcwd(NULL, 0);
 //        write(1, cwd, strlen(cwd) * sizeof(char));
         printf("%s: ", cwd); //TODO: replace printf
@@ -60,25 +62,35 @@ int main(){
 
         //read and parse input
         input = read_command(&input_length);
-        args[0] = strtok_r(input, " ", &save_ptr);
-        //command = args[0];
-        int i = 1;
-        args[ARG_MAX_LENGTH - 1] = NULL;
-        do{
-            args[i] = strtok_r(NULL, " ", &save_ptr);
-            i++;
-        }while(i < ARG_MAX_LENGTH - 1 && args[i - 1] != NULL);
+        command = strtok_r(input, " ", &save_ptr);
+        if(command != NULL) {
+            char *current_arg = strtok_r(NULL, " ", &save_ptr);
+            //llist_add(arg_list, current_arg, 0);
+            //arg_list[ARG_MAX_LENGTH - 1] = NULL;
+            while (current_arg != NULL) {
+                llist_tailinsert(arg_list, current_arg, 0);
+                current_arg = strtok_r(NULL, " ", &save_ptr);
+            }
 
-        args[i - 2] = remove_new_line(args[i - 2]);
 
-        //check termination
-        go_on = strncmp("exit", args[0], sizeof(char) * 4);
-        if(go_on != 0){
-            store_command(args); //TODO: run in separate thread
-            run_command(args);
-        }else{
-            cmd_exit();
+            //remove_new_line(llist_getlast(arg_list, NULL));
+
+            //check termination
+            go_on = strncmp("exit", command, sizeof(char) * 4);
+            if (go_on != 0) {
+                if (strcmp(command, "sudo") == 0) {
+                    llist_headinsert(arg_list, "-S", 0); //Todo: may be unnecessary
+                }
+                llist_headinsert(arg_list, command, 0);
+                char **args = (char **) llist_as_array(arg_list, NULL);
+                store_command(args); //TODO: run in separate thread
+                run_command(args);
+                FREE(args);
+            } else {
+                cmd_exit();
+            }
         }
+        llist_destroy(arg_list);
         FREE(input);
     }while(go_on);
 
@@ -100,12 +112,16 @@ int run_command(char **args) {
         char cmd[COMMAND_BASE_LENGTH + 5];
         sprintf(cmd, "/bin/");
         strncat(cmd, command, COMMAND_BASE_LENGTH + 5);
+        if(strcmp(command, "sudo") == 0){
+
+        }
         execvp(cmd, args);
         if(errno == ENOENT) {
             printf("\'%s\' command not found\n", command);
             sprintf(cmd, "/usr/bin/");
             strncat(cmd, command, COMMAND_BASE_LENGTH + 5);
             execvp(cmd, args);
+            exit(1);
         } else
             perror("Exec");
         return 0;
@@ -161,9 +177,9 @@ char *read_command(size_t *readen) {
                     size_t len = strlen(cmd_completed);
                     input = Realloc(input, len + 1);
                     strncpy(input, cmd_completed, len);
-                    *readen = len;
-                    input[*readen] = '\n';
-                    terminate = 1;
+                    *readen = len - 1;
+//                    input[*readen] = '\n';
+//                    terminate = 1;
                 }
                 break;
             case '\033':
@@ -172,20 +188,21 @@ char *read_command(size_t *readen) {
                 fread(input + *readen, sizeof(char), 1, stdin); //reading arrow type
                 switch(input[*readen]) { // the real value
                     case 'A':
-                        //fprintf(stderr, "Up arrow key!\n");
+                        fprintf(stderr, "Up arrow key!\n");
                         break;
                     case 'B':
-                        //fprintf(stderr, "Down arrow key!\n");
+                        fprintf(stderr, "Down arrow key!\n");
                         break;
                     case 'C':
-                        //fprintf(stderr, "Right arrow key!\n");
+                        fprintf(stderr, "Right arrow key!\n");
                         break;
                     case 'D':
-                        //fprintf(stderr, "Left arrow key!\n");
+                        fprintf(stderr, "Left arrow key!\n");
                         break;
                     default:
                         fprintf(stderr, "A non-arrow key has been pressed\n");
                 }
+                (*readen)--;
                 break;
             default:
                 putchar(input[*readen]);
@@ -194,12 +211,12 @@ char *read_command(size_t *readen) {
         (*readen)++;
     }while(!terminate);
 
-    if(*readen >= input_length){
-        input = Realloc(input, sizeof(char) * (*readen + 1));
-        *readen += sizeof(char); //TODO: what?
-    }
+//    if(*readen >= input_length){
+//        input = Realloc(input, sizeof(char) * (*readen + 1));
+//        *readen += sizeof(char); //TODO: what?
+//    }
 
-    input[*readen] = '\0';
+    input[*readen - 1] = '\0';
 
     return input;
 }
@@ -241,7 +258,7 @@ char* tab_complete(char *input) {
         putchar(' ');
         putchar(8);
     }
-    printf("%s\n", complete);
+    printf("%s", complete);
     return complete;
 }
 

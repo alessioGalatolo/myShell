@@ -8,13 +8,17 @@
 #include <pthread.h>
 #include <sys/stat.h>
 #include <stdio.h>
+#include <pwd.h>
+#include <sys/types.h>
 #include "cmd_storage.h"
 #include "RBTree.h"
 #include "stack.h"
+#include "utils.h"
 
-//TODO: dynamically get home directory
-#define CMD_STORE_PATH "/home/alessio/myShell/saved_commands"
-#define CMD_STORE_DIR "/home/alessio/myShell"
+
+char* cmd_store_dir = NULL; //the path to the directory where to store files
+char* cmd_stack_path = NULL;
+char* cmd_tree_path = NULL;
 
 rb_tree* cmd_tree = NULL;
 stack* cmd_stack = NULL;
@@ -26,16 +30,31 @@ int autosave_terminate = 0;
 int incomplete_cmd = 0;//TODO
 
 
-
-static void check_initialization(){
+//TODO: re-add load from file, check for errors
+static int check_initialization(){
+    if(!cmd_stack_path){
+        struct passwd *pw = getpwuid(getuid());
+        const char *homedir = pw->pw_dir;
+        char* extension = "/.myShell"; //TODO: replace with yash
+        MALLOC(cmd_store_dir, sizeof(char) * (strlen(homedir) + strlen(extension) + 1), ;);
+        strcpy(cmd_store_dir, homedir);
+        strcat(cmd_store_dir, extension);
+        MALLOC(cmd_stack_path, sizeof(char) * strlen(cmd_store_dir) + 16, FREE(cmd_store_dir));
+        strcpy(cmd_stack_path, cmd_store_dir);
+        strcat(cmd_stack_path, "/commands_stack");
+        MALLOC(cmd_tree_path, sizeof(char) * strlen(cmd_store_dir) + 15, FREE(cmd_store_dir); FREE(cmd_stack_path));
+        strcpy(cmd_tree_path, cmd_store_dir);
+        strcat(cmd_tree_path, "/commands_tree");
+    }
     if(cmd_tree == NULL) {
         cmd_tree = tree_init();
-        tree_load_file(cmd_tree, CMD_STORE_PATH);
+        tree_load_file(cmd_tree, cmd_tree_path);
     }
     if(cmd_stack == NULL) {
         cmd_stack = stack_init();
-        stack_load_file(cmd_stack, CMD_STORE_PATH);
+        stack_load_file(cmd_stack, cmd_stack_path);
     }
+    return 1;
 }
 
 static void* store_thread_fun(void* arg){
@@ -60,15 +79,15 @@ void autosave_tofile(int on){
 
 static int store_tofile(){
     //checks folder existence
-    if(access(CMD_STORE_DIR, F_OK) == -1){//not found
-        if(mkdir(CMD_STORE_DIR, 0777) == -1)
+    if(access(cmd_store_dir, F_OK) == -1){//not found
+        if(mkdir(cmd_store_dir, 0777) == -1)
             perror("mkdir error during store tofile");
     }
 
     if(cmd_tree != NULL)
-        tree_save_file(cmd_tree, CMD_STORE_PATH);
+        tree_save_file(cmd_tree, cmd_tree_path);
     if(cmd_stack != NULL)
-        stack_save_file(cmd_stack, CMD_STORE_PATH);
+        stack_save_file(cmd_stack, cmd_stack_path);
     return 1;
 }
 
@@ -80,9 +99,8 @@ int store_command(char** args) {
         total_length += strlen(args[i]) + 1;
         i++;
     }
-    char* cmd = malloc(sizeof(total_length));
-    if(cmd == NULL)
-        return 0;
+    char* cmd; //stores command with arguments
+    MALLOC(cmd, sizeof(char) * total_length + 1, ;);
     strcpy(cmd, args[0]);
     strcat(cmd, " ");
     i = 1;
@@ -91,6 +109,7 @@ int store_command(char** args) {
         strcat(cmd, " ");
         i++;
     }
+    //TODO: replace last space with \0?
 
     int outcome = 0;
     outcome += stack_add(cmd_stack, cmd);
@@ -117,4 +136,7 @@ void cmd_exit(){
     store_tofile();
     stack_destroy_wfree(cmd_stack);
     //TODO: tree_destroy_wfree(cmd_tree);
+    FREE(cmd_stack_path);
+    FREE(cmd_tree_path);
+    FREE(cmd_store_dir);
 }

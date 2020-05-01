@@ -3,6 +3,7 @@
 //
 
 #include "RBTree.h"
+#include "utils.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -14,9 +15,6 @@
 
 #define NULL_CHECK(x)\
     if((x) == 0){perror("NULL pointer"); goto error;}
-
-#define FCLOSE(x)\
-    if(x != NULL){if(fclose(x) == EOF) perror("fclose"); x = NULL;}
 
     //TODO: check fread return value
 

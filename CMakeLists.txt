@@ -5,6 +5,6 @@ set(CMAKE_C_STANDARD 99)
 #set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=address -g")
 
 
-add_executable(myShell main.c cmd_storage.h cmd_storage.c RBTree.h RBTree.c stack.h stack.c)
+add_executable(myShell main.c cmd_storage.h cmd_storage.c RBTree.h RBTree.c stack.h stack.c linkedlist.h linkedlist.c utils.h)
 
 target_link_libraries(myShell pthread)
