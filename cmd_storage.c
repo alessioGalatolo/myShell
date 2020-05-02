@@ -30,7 +30,6 @@ int autosave_terminate = 0;
 int incomplete_cmd = 0;//TODO
 
 
-//TODO: re-add load from file, check for errors
 static int check_initialization(){
     if(!cmd_stack_path){
         struct passwd *pw = getpwuid(getuid());
@@ -78,16 +77,18 @@ void autosave_tofile(int on){
 }
 
 static int store_tofile(){
-    //checks folder existence
-    if(access(cmd_store_dir, F_OK) == -1){//not found
-        if(mkdir(cmd_store_dir, 0777) == -1)
-            perror("mkdir error during store tofile");
-    }
+    if(cmd_store_dir) {
+        //checks folder existence
+        if (access(cmd_store_dir, F_OK) == -1) {//not found
+            if (mkdir(cmd_store_dir, 0777) == -1)
+                perror("mkdir error during store tofile");
+        }
 
-    if(cmd_tree != NULL)
-        tree_save_file(cmd_tree, cmd_tree_path);
-    if(cmd_stack != NULL)
-        stack_save_file(cmd_stack, cmd_stack_path);
+        if (cmd_tree != NULL)
+            tree_save_file(cmd_tree, cmd_tree_path);
+        if (cmd_stack != NULL)
+            stack_save_file(cmd_stack, cmd_stack_path);
+    }
     return 1;
 }
 
@@ -112,8 +113,8 @@ int store_command(char** args) {
     //TODO: replace last space with \0?
 
     int outcome = 0;
-    outcome += stack_add(cmd_stack, cmd);
-    outcome += tree_insert(cmd_tree, cmd, strlen(cmd));
+    outcome += stack_add(cmd_stack, cmd, (strlen(cmd) + 1) * sizeof(char));
+    outcome += tree_insert(cmd_tree, cmd, (strlen(cmd) + 1) * sizeof(char));
 
     return outcome == 2? 1: 0;
 }

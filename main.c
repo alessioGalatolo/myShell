@@ -25,26 +25,17 @@ void *Realloc(void *buf, size_t size);
 
 //keep attributes of terminal
 struct termios saved_attributes;
-char *read_command(size_t *readen);
+
+char *read_command(ssize_t *readen);
 void set_input_mode();
 char* tab_complete(char *input);
 int run_command(char **args);
+int exec_local_cmd(char* cmd, char** args);
 
-/**
- * TODO
- */
-void remove_new_line(char *s){
-    if(s) {
-        int i = 0;
-        while (*(s + 1 + i) != '\0')
-            i++;
-        *(s + i) = '\0';
-    }
-}
 
 //TODO change ARG_MAX_LENGTH
 int main(){
-    size_t input_length = COMMAND_BASE_LENGTH;
+    ssize_t input_length;
     char *input;
     char *command; //stores the typed command
 
@@ -54,9 +45,7 @@ int main(){
     do{
         char *save_ptr; //used for tokenizer memory
         llist_t* arg_list = llist_create();
-        //char *arg_list[ARG_MAX_LENGTH]; //will store command and arguments
         char* cwd = getcwd(NULL, 0);
-//        write(1, cwd, strlen(cwd) * sizeof(char));
         printf("%s: ", cwd); //TODO: replace printf
         FREE(cwd);
 
@@ -65,15 +54,10 @@ int main(){
         command = strtok_r(input, " ", &save_ptr);
         if(command != NULL) {
             char *current_arg = strtok_r(NULL, " ", &save_ptr);
-            //llist_add(arg_list, current_arg, 0);
-            //arg_list[ARG_MAX_LENGTH - 1] = NULL;
             while (current_arg != NULL) {
                 llist_tailinsert(arg_list, current_arg, 0);
                 current_arg = strtok_r(NULL, " ", &save_ptr);
             }
-
-
-            //remove_new_line(llist_getlast(arg_list, NULL));
 
             //check termination
             go_on = strncmp("exit", command, sizeof(char) * 4);
@@ -103,6 +87,8 @@ int main(){
  */
 int run_command(char **args) {
     char* command = args[0];
+    if(exec_local_cmd(command, args)) //look in local commands
+        return 1;
     int pid = fork();
     if(pid < 0){
         perror("fork error");
@@ -117,10 +103,10 @@ int run_command(char **args) {
         }
         execvp(cmd, args);
         if(errno == ENOENT) {
-            printf("\'%s\' command not found\n", command);
             sprintf(cmd, "/usr/bin/");
             strncat(cmd, command, COMMAND_BASE_LENGTH + 5);
             execvp(cmd, args);
+            printf("\'%s\' command not found\n", command);
             exit(1);
         } else
             perror("Exec");
@@ -136,12 +122,13 @@ int run_command(char **args) {
  * @param readen Pointer to size_t to store the number of char read
  * @return The string read
  */
-char *read_command(size_t *readen) {
+char *read_command(ssize_t *readen) {
     size_t input_length = COMMAND_BASE_LENGTH;
     char* input = Malloc(input_length);
     *readen = 0;
     int terminate = 0;
     do{
+
         size_t read_n = 0;
         if(*readen > input_length - COMMAND_BASE_LENGTH / 5){
             input = Realloc(input, sizeof(char) * (input_length + COMMAND_BASE_LENGTH));
@@ -167,6 +154,8 @@ char *read_command(size_t *readen) {
                     putchar(' ');
                     putchar(8);
                     (*readen) -= 2;
+                }else{
+                    (*readen)--;
                 }
                 break;
             case '\t':
@@ -178,8 +167,6 @@ char *read_command(size_t *readen) {
                     input = Realloc(input, len + 1);
                     strncpy(input, cmd_completed, len);
                     *readen = len - 1;
-//                    input[*readen] = '\n';
-//                    terminate = 1;
                 }
                 break;
             case '\033':
@@ -187,6 +174,7 @@ char *read_command(size_t *readen) {
                 fread(input + *readen, sizeof(char), 1, stdin); //reading '['
                 fread(input + *readen, sizeof(char), 1, stdin); //reading arrow type
                 switch(input[*readen]) { // the real value
+                    //todo
                     case 'A':
                         fprintf(stderr, "Up arrow key!\n");
                         break;
@@ -211,11 +199,6 @@ char *read_command(size_t *readen) {
         (*readen)++;
     }while(!terminate);
 
-//    if(*readen >= input_length){
-//        input = Realloc(input, sizeof(char) * (*readen + 1));
-//        *readen += sizeof(char); //TODO: what?
-//    }
-
     input[*readen - 1] = '\0';
 
     return input;
@@ -227,29 +210,6 @@ char *read_command(size_t *readen) {
  * @return ??? TODO
  */
 char* tab_complete(char *input) {
-//    int mfd = open(COMPLETE_FILE, O_WRONLY, 0666);
-//    int pid = fork();
-//    if(pid < 0){
-//        perror("fork error");
-//        return 1;
-//    }else if( pid == 0 ){
-//        size_t len = strlen(input) + 1;
-//        char to_complete[len];
-//        strncpy(to_complete, input, len);
-//        to_complete[len - 2] = '*';
-//        to_complete[len - 1] = '\0';
-//        //dup2(2, mfd);
-//        dup2(1, mfd);
-//        execl("/usr/bin/find", "/bin", "-name", to_complete, NULL);
-//        printf("sei grullo\n");
-//        return 1;
-//    }else {
-//        waitpid(pid, NULL, 0);
-//        //elaborate output
-//        //fprintf(stderr, "ecnsp\n");
-//        close(mfd);
-//        //unlink(COMPLETE_FILE);
-//    }
     char* complete = search_command(input);
     if(complete == NULL)
         return NULL;
@@ -330,4 +290,19 @@ void set_input_mode(){
     tattr.c_cc[VMIN] = 1;
     tattr.c_cc[VTIME] = 0;
     tcsetattr (STDIN_FILENO, TCSAFLUSH, &tattr);
+}
+
+/**
+ * Tries to execute commands internal to the shell.
+ * @param cmd
+ * @param args
+ */
+int exec_local_cmd(char* cmd, char** args){
+    if(strcmp(cmd, "cd") == 0){
+        if(chdir(args[1]) == -1)
+            perror("chdir error: ");
+        return 1;
+    }
+    //todo: add bg for background commands
+    return 0;
 }

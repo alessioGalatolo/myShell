@@ -28,7 +28,7 @@ static void tree_rec_print(node* n);
 static size_t min(size_t, size_t);
 static int void_compare(void*, void*, size_t);
 void tree_rec_write(node* n, FILE* file);
-node* tree_rec_read(node* n, FILE* file);
+node* tree_rec_read(node* parent, FILE* file);
 
 rb_tree* tree_init(){
     rb_tree* t = malloc(sizeof(rb_tree));
@@ -42,37 +42,37 @@ int tree_insert(rb_tree* tree, void* obj, size_t length){
     node* parent = NULL;
     node* x = NULL;
     node* new = NULL;
-    x = rec_search(tree -> root, obj, length);
+    x = rec_search(tree->root, obj, length);
     if (x != NULL) {
         THREAD_CHECK(pthread_mutex_unlock(&tree->mutex));
         return 1; //already in tree
     }
     NULL_CHECK(new = malloc(sizeof(node)));
-    new -> parent = NULL;
-    new -> left = NULL;
-    new -> right = NULL;
-    new -> black = 1;
-    new -> key = obj;
-    new -> key_length = length;
+    new->parent = NULL;
+    new->left = NULL;
+    new->right = NULL;
+    new->black = 1;
+    new->key = obj;
+    new->key_length = length;
 
-    x = tree -> root;
+    x = tree->root;
     while(x != NULL){
         parent = x;
-        if(memcmp(new -> key, x -> key, min(new -> key_length, x -> key_length)) < 0)
+        if(memcmp(new->key, x->key, min(new->key_length, x->key_length)) < 0)
             x=x->left;
         else
             x=x->right;
     }
-    new -> parent = parent;
+    new->parent = parent;
     if(parent == NULL)
-        tree -> root = new;
-    else if(memcmp(new -> key, parent -> key, min(new -> key_length, parent -> key_length)) < 0)
-        parent -> left = new;
+        tree->root = new;
+    else if(memcmp(new->key, parent->key, min(new->key_length, parent->key_length)) < 0)
+        parent->left = new;
     else 
-        parent -> right = new;
+        parent->right = new;
 
-    insert_fixup(new, &(tree -> root));
-    THREAD_CHECK(pthread_mutex_unlock(&tree -> mutex));
+    insert_fixup(new, &(tree->root));
+    THREAD_CHECK(pthread_mutex_unlock(&tree->mutex));
     return 1;
 
     error:
@@ -217,29 +217,29 @@ static void tree_rec_print(node* n){
 
 
 int tree_save_file(rb_tree* tree, char* path){
-    THREAD_CHECK(pthread_mutex_lock(&tree -> mutex));
+    THREAD_CHECK(pthread_mutex_lock(&tree->mutex));
     FILE* file = fopen(path, "w");
     NULL_CHECK(file);
 
-    tree_rec_write(tree -> root, file);
+    tree_rec_write(tree->root, file);
 
     FCLOSE(file); //check error
-    THREAD_CHECK(pthread_mutex_unlock(&tree -> mutex));
+    THREAD_CHECK(pthread_mutex_unlock(&tree->mutex));
     return 1;
 
     error:
         FCLOSE(file);
-        THREAD_CHECK(pthread_mutex_unlock(&tree -> mutex));
+        THREAD_CHECK(pthread_mutex_unlock(&tree->mutex));
         return 0;
 }
 
 void tree_rec_write(node* n, FILE* file) {
     if (n != NULL) {
-        fwrite(&n -> key_length, sizeof(size_t), 1, file);
-        fwrite(n -> key, 1, n -> key_length, file);
-        fwrite(&n -> black, sizeof(int), 1, file);
-        tree_rec_write(n -> left, file);
-        tree_rec_write(n -> right, file);
+        fwrite(&n->key_length, sizeof(size_t), 1, file);
+        fwrite(n->key, 1, n->key_length, file);
+        fwrite(&n->black, sizeof(int), 1, file);
+        tree_rec_write(n->left, file);
+        tree_rec_write(n->right, file);
     }else{
         size_t s = 0;
         fwrite(&s, sizeof(size_t), 1, file); //write NULL
@@ -247,46 +247,44 @@ void tree_rec_write(node* n, FILE* file) {
 }
 
 int tree_load_file(rb_tree* tree, char* path){
-    THREAD_CHECK(pthread_mutex_lock(&tree -> mutex));
+    THREAD_CHECK(pthread_mutex_lock(&tree->mutex));
     FILE* file = fopen(path, "r");
     if(file == NULL && errno == ENOENT)
         goto error;
-    NULL_CHECK(file);
-    tree -> root = malloc(sizeof(node));
-    fread(&tree -> root -> key_length, sizeof(size_t), 1, file);
-    NULL_CHECK(tree -> root -> key = malloc(tree -> root -> key_length));
-    fread(tree -> root -> key, 1, tree -> root -> key_length, file);
-    tree -> root -> right = NULL;
-    tree -> root -> left = NULL;
-    tree -> root -> parent = NULL;
-    fread(&tree -> root -> black, sizeof(int), 1, file);
+    NULL_CHECK(file); //Todo: doesn't release lock
+    tree->root = malloc(sizeof(node));
+    fread(&tree->root->key_length, sizeof(size_t), 1, file);
+    NULL_CHECK(tree->root->key = malloc(tree->root->key_length));
+    fread(tree->root->key, 1, tree->root->key_length, file);
+    tree->root->parent = NULL;
+    fread(&tree->root->black, sizeof(int), 1, file);
 
-    tree -> root -> left = tree_rec_read(tree -> root, file);
-    tree -> root -> right = tree_rec_read(tree -> root, file);
+    tree->root->left = tree_rec_read(tree->root, file);
+    tree->root->right = tree_rec_read(tree->root, file);
     FCLOSE(file);
-    THREAD_CHECK(pthread_mutex_unlock(&tree -> mutex));
+    THREAD_CHECK(pthread_mutex_unlock(&tree->mutex));
     return 1;
 
     error:
         FCLOSE(file);
-        THREAD_CHECK(pthread_mutex_unlock(&tree -> mutex));
+        THREAD_CHECK(pthread_mutex_unlock(&tree->mutex));
         return 0;
 }
 
 
-node* tree_rec_read(node* n, FILE* file){
+node* tree_rec_read(node* parent, FILE* file){
     node* new = malloc(sizeof(node));
-    if(new == 0)
+    if(!new)
         return 0;
-    fread(&new -> key_length, sizeof(size_t), 1, file);
-    if(new -> key_length){
-        if((new -> key = malloc(new -> key_length)) == 0)
+    fread(&new->key_length, sizeof(size_t), 1, file);
+    if(new->key_length){
+        if((new->key = malloc(new->key_length)) == 0)
             return 0;
-        fread(new -> key, 1, new -> key_length, file);
-        fread(&new -> black, sizeof(int), 1, file);
-        new -> parent = n;
-        new -> left = tree_rec_read(new, file);
-        new -> right = tree_rec_read(new, file);
+        fread(new->key, 1, new->key_length, file);
+        fread(&new->black, sizeof(int), 1, file);
+        new->parent = parent;
+        new->left = tree_rec_read(new, file);
+        new->right = tree_rec_read(new, file);
         return new;
     }else{
         free(new);

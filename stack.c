@@ -18,7 +18,7 @@ stack* stack_init(){
     return s;
 }
 
-int stack_add(stack* s, void* obj){
+int stack_add(stack* s, void* obj, size_t size){
     NULL_CHECK(s);
     THREAD_CHECK(pthread_mutex_lock(&(s -> mutex)));
     stack_node* oldhead = s -> head;
@@ -28,6 +28,7 @@ int stack_add(stack* s, void* obj){
         return 0;
     }
     s->head->elem = obj;
+    s->head->elem_size = size;
     s->head->next = oldhead;
     if(oldhead == NULL)
         s->head->pos = 1;
@@ -89,8 +90,8 @@ void stack_rec_destroy(stack_node* s){
 void stack_rec_write(stack_node* s, FILE* file){
     if(s != NULL) {
         stack_rec_write(s->next, file);
-        fwrite(&s -> elem_size, sizeof(size_t), 1, file);
-        fwrite(s -> elem, 1, s -> elem_size, file);
+        fwrite(&s->elem_size, sizeof(size_t), 1, file);
+        fwrite(s->elem, 1, s->elem_size, file);
     }
 }
 
@@ -99,33 +100,36 @@ int stack_save_file(stack* s, char* path){
     if(file == NULL)
         return 0;
     stack_rec_write(s->head, file);
-    size_t zero = 0;
+    size_t zero = 0; //suggests last element
     fwrite(&zero, sizeof(size_t), 1, file);
     FCLOSE(file);
     return 1;
 }
 
-int stack_load_file(stack* s, char* path){
+//TODO: not thread safe
+void stack_print(stack* s){
+    if(s){
+        printf("Stack loaded is: \n");
+        stack_node* node = s->head;
+        while(node){
+            printf("%s\n", node->elem);
+            node = node->next;
+        }
+    }
+}
+
+int stack_load_file(stack* mStack, char* path){
     FILE* file = fopen(path, "r");
     if(file == NULL)
         return 0;
-    if((s -> head = malloc(sizeof(stack_node))) == NULL)
-        return 0;
-    fread(&s -> head -> elem_size, sizeof(size_t), 1, file);
-    if(s -> head -> elem_size == 0)
-        return 1;
-    if((s -> head -> elem = malloc(s -> head -> elem_size)) == NULL)
-        return 0;
-    fread(&s -> head -> elem, 1, s -> head -> elem_size, file);
-    size_t cur_size = 0;
-    fread(&cur_size, sizeof(size_t), 1, file);
-    stack_node* cur_node = s -> head;
-    while(cur_size != 0){
-        if((cur_node -> next = malloc(cur_size)) == NULL)
-            return 0;
-        fread(cur_node -> next, 1, cur_size, file);
-        cur_node = cur_node -> next;
-        fread(&cur_size, sizeof(size_t), 1, file);
+    size_t size2read;
+    void* elem2read;
+    fread(&size2read, sizeof(size_t), 1, file);
+    while(size2read != 0){
+        MALLOC(elem2read, size2read, ;);
+        fread(elem2read, 1, size2read, file);
+        stack_add(mStack, elem2read, size2read);
+        fread(&size2read, sizeof(size_t), 1, file);
     }
     return 1;
 }
@@ -139,4 +143,6 @@ int stack_destroy_wfree(stack* s){
     THREAD_CHECK(pthread_mutex_destroy(&(s -> mutex)));
     return 1;
 }
+
+
 
